@@ -26,15 +26,23 @@ Create a DiffEvol instance
 
 ::
 
-    de = DiffEvol(minfun, bounds, npop, ngen)
+    de = DiffEvol(minfun, bounds, npop)
 
-where minfun is the function to be minimized, bounds is an initialization array [[p1min, p1max], [p2min, p2max], ... [pnmin,pnmax]], npop is the size of the parameter vector population, and ngen the number of DE generations.
+where ``minfun`` is the function to be optimized, ``bounds`` is an initialization array, 
+and ``npop`` is the size of the parameter vector population.
 
-Run the minimizer
+Now, you can run the optimizer ``ngen`` generations
 
 ::
 
-    de_res = de()
+    res = de.optimize(ngen=100)
+  
+or run the optimizer as an iterator
+  
+::
+
+    for res in de(ngen=100):
+        do something
   
 Usage with emcee
 ----------------
