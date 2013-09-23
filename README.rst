@@ -57,7 +57,7 @@ Simple, initialize emcee with the final DE population
 API
 ---
 
-*pyde.de.*\ **DiffEvol** (``minfun``, ``bounds``, ``npop``, ``ngen``, ``F=0.5``, ``C=0.5``,
+*pyde.de.*\ **DiffEvol** (``minfun``, ``bounds``, ``npop``, ``F=0.5``, ``C=0.5``,
 ``seed=0``, ``verbose=False``)
 
 **Parameters**
@@ -69,5 +69,3 @@ API
 :``C``:         Cross-over probability. Use 0.9 to test for fast convergence, and smaller values (~0.1) for a more elaborate search.
 :``seed``:      Random seed.
 :``verbose``:   Verbosity.
-
-**Returns**
