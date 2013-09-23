@@ -65,7 +65,6 @@ API
 :``minfun``:    Function to be minimized.
 :``bounds``:    Parameter space bounds as [npar,2] array.
 :``npop``:      Size of the parameter vector population.
-:``ngen``:      Number of generations to run.
 :``F``:         Difference amplification factor. Values between 0.5-0.8 are good in most cases.
 :``C``:         Cross-over probability. Use 0.9 to test for fast convergence, and smaller values (~0.1) for a more elaborate search.
 :``seed``:      Random seed.
