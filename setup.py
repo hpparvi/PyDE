@@ -7,7 +7,7 @@ setup(name='PyDE',
       description='Differential Evolution in Python',
       author='Hannu Parviainen',
       author_email='hpparvi@gmail.com',
-      url='',
+      url='https://github.com/hpparvi/PyDE',
       package_dir={'pyde':'src'},
       packages=['pyde']
      )
