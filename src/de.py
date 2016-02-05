@@ -8,6 +8,7 @@ from __future__ import division
 
 import numpy as np
 from numpy.random import random, randint
+from de_f import de_f
 
 class DiffEvol(object):
     """
@@ -36,8 +37,9 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, F=0.5, C=0.5, seed=0, maximize=False):
-        np.random.seed(seed)
+    def __init__(self, fun, bounds, npop, F=0.5, C=0.5, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1]):
+        if seed:
+            np.random.seed(seed)
 
         self.minfun = fun
         self.bounds = np.asarray(bounds)
@@ -47,16 +49,27 @@ class DiffEvol(object):
         self.bw = np.tile(self.bounds[:,1]-self.bounds[:,0],[npop,1])
         self.m  = -1 if maximize else 1
 
+        self.cmin = cbounds[0]
+        self.cmax = cbounds[1]
+
         self.seed = seed
         self.F = F
         self.C = C
 
-        self._population = self.bl + random([self.n_pop, self.n_par]) * self.bw
+        self._population = np.asarray(self.bl + random([self.n_pop, self.n_par]) * self.bw)
         self._fitness    = np.zeros(npop)
         self._minidx     = None
 
+        self._trial_pop  = np.zeros_like(self._population)
+        self._trial_fit  = np.zeros_like(self._fitness)
+
+        if vfun:
+            self._eval = self._eval_vfun
+        else:
+            self._eval = self._eval_sfun
+
     @property
-    def population(self):
+    def population(self): 
         """The parameter vector population"""
         return self._population
 
@@ -82,36 +95,49 @@ class DiffEvol(object):
         return res
 
     def __call__(self, ngen=1):
-        t = np.zeros(3, np.int)
+        return self._eval(ngen)
+
+    def _eval_sfun(self, ngen=1):
+        """Run DE for a function that takes a single pv as an input and retuns a single value."""
+        popc, fitc = self._population, self._fitness
+        popt, fitt = self._trial_pop, self._trial_fit
         
-        for i in xrange(self.n_pop):
-            self._fitness[i] = self.m * self.minfun(self._population[i,:])
+        for ipop in xrange(self.n_pop):
+            fitc[ipop] = self.m * self.minfun(popc[ipop,:])
 
-        for j in xrange(ngen):
-            for i in xrange(self.n_pop):
-                t[:] = i
-                while  t[0] == i:
-                    t[0] = randint(self.n_pop)
-                while  t[1] == i or t[1] == t[0]:
-                    t[1] = randint(self.n_pop)
-                while  t[2] == i or t[2] == t[0] or t[2] == t[1]:
-                    t[2] = randint(self.n_pop)
+        for igen in xrange(ngen):
+            popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
+
+            for ipop in xrange(self.n_pop):
+                fitt[ipop] = self.m * self.minfun(popt[ipop,:])
     
-                v = self._population[t[0],:] + self.F * (self._population[t[1],:] - self._population[t[2],:])
+            msk = fitt < fitc
+            popc[msk,:] = popt[msk,:]
+            fitc[msk]   = fitt[msk]
 
-                ## --- CROSS OVER ---
-                crossover = random(self.n_par) <= self.C
-                u = np.where(crossover, v, self._population[i,:])
+            self._minidx = np.argmin(fitc)
+            yield popc[self._minidx,:], fitc[self._minidx]
 
-                ## --- FORCED CROSSING ---
-                ri = randint(self.n_par)
-                u[ri] = v[ri].copy()
 
-                ufit = self.m * self.minfun(u)
-    
-                if ufit < self._fitness[i]:
-                    self._population[i,:] = u[:].copy()
-                    self._fitness[i]      = ufit
+    def _eval_vfun(self, ngen=1):
+        """Run DE for a function that takes the whole population as an input and retuns a value for each pv."""
+        popc, fitc = self._population, self._fitness
+        popt, fitt = self._trial_pop, self._trial_fit
 
-            self._minidx = np.argmin(self._fitness)
-            yield self.population[self._minidx,:], self._fitness[self._minidx]
+        fitc[:] = self.m * self.minfun(self._population)
+
+        for igen in xrange(ngen):
+            x = float(ngen-igen)/float(ngen)
+
+            self.F = np.random.uniform(0.25,0.75)
+            self.C = x*self.cmax + (1-x)*self.cmin
+
+            popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
+            fitt[:] = self.m * self.minfun(popt)
+            msk = fitt < fitc
+            popc[msk,:] = popt[msk,:]
+            fitc[msk]   = fitt[msk]
+
+            self._minidx = np.argmin(fitc)
+            yield popc[self._minidx,:], fitc[self._minidx]
+

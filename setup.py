@@ -14,6 +14,7 @@ setup(name='PyDE',
       url='https://github.com/hpparvi/PyDE',
       package_dir={'pyde':'src'},
       packages=['pyde'],
+      ext_modules=[Extension('pyde.de_f', ['src/de.f90'], libraries=['gomp','m'])],
       install_requires=["numpy"],
       license='GPLv2',
       classifiers=[
