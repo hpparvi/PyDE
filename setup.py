@@ -6,7 +6,7 @@ with open('README.rst') as file:
     long_description = file.read()
 
 setup(name='PyDE',
-      version='1.0.1',
+      version='1.5',
       description='Differential Evolution in Python',
       long_description=long_description,
       author='Hannu Parviainen',
