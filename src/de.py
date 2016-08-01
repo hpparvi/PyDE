@@ -49,7 +49,12 @@ class DiffEvol(object):
         self.bw = np.tile(self.bounds[:,1]-self.bounds[:,0],[npop,1])
         self.m  = -1 if maximize else 1
         self.pool = pool
-        
+
+        if self.pool is not None:
+            self.map = self.pool.map
+        else:
+            self.map = map
+
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
 
@@ -108,14 +113,8 @@ class DiffEvol(object):
 
         for igen in range(ngen):
             popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
-
-            if self.pool is not None:
-                M = self.pool.map
-            else:
-                M = map
-
-            fitt[:] = self.m * np.array(M(self.minfun, popt))
-                
+            fitt[:] = self.m * np.array(self.map(self.minfun, popt))
+            
             msk = fitt < fitc
             popc[msk,:] = popt[msk,:]
             fitc[msk]   = fitt[msk]
