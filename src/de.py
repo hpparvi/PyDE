@@ -6,9 +6,14 @@ Implements the differential evolution optimization method by Storn & Price
 """
 from __future__ import division 
 
+import math as mt
 import numpy as np
 from numpy.random import random, randint
 from .de_f import de_f
+
+def wrap(v, vmin, vmax):
+    w = vmax-vmin
+    return vmin+np.mod(np.asarray(v)-vmin, w)
 
 class DiffEvol(object):
     """
@@ -37,10 +42,10 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None):
+    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None):
         if seed is not None:
             np.random.seed(seed)
-
+            
         self.minfun = fun
         self.bounds = np.asarray(bounds)
         self.n_pop  = npop
@@ -55,6 +60,8 @@ class DiffEvol(object):
         else:
             self.map = map
 
+        self.periodic = []
+            
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
         self.cbounds = cbounds
@@ -95,7 +102,7 @@ class DiffEvol(object):
     def minimum_index(self):
         """Index of the best-fit solution"""
         return self._minidx
-
+    
     def optimize(self, ngen):
         """Run the optimizer for ``ngen`` generations"""
         for res in self(ngen):
@@ -118,6 +125,10 @@ class DiffEvol(object):
             C = self.C or np.random.uniform(*self.cbounds)
 
             popt[:,:] = de_f.evolve_population(popc, F, C)
+
+            for pid in self.periodic:
+                popt[:,pid] = wrap(popt[:,pid], self.bounds[pid,0], self.bounds[pid,1])
+            
             fitt[:] = self.m * np.array(self.map(self.minfun, popt))
             
             msk = fitt < fitc
