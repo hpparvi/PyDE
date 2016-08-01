@@ -8,7 +8,7 @@ from __future__ import division
 
 import numpy as np
 from numpy.random import random, randint
-from de_f import de_f
+from .de_f import de_f
 
 class DiffEvol(object):
     """
@@ -102,13 +102,13 @@ class DiffEvol(object):
         popc, fitc = self._population, self._fitness
         popt, fitt = self._trial_pop, self._trial_fit
         
-        for ipop in xrange(self.n_pop):
+        for ipop in range(self.n_pop):
             fitc[ipop] = self.m * self.minfun(popc[ipop,:])
 
-        for igen in xrange(ngen):
+        for igen in range(ngen):
             popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
 
-            for ipop in xrange(self.n_pop):
+            for ipop in range(self.n_pop):
                 fitt[ipop] = self.m * self.minfun(popt[ipop,:])
     
             msk = fitt < fitc
@@ -126,7 +126,7 @@ class DiffEvol(object):
 
         fitc[:] = self.m * self.minfun(self._population)
 
-        for igen in xrange(ngen):
+        for igen in range(ngen):
             x = float(ngen-igen)/float(ngen)
 
             self.F = np.random.uniform(0.25,0.75)

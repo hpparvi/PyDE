@@ -61,7 +61,6 @@ References
 .. autoclass:: pyde.de.DiffEvol
    :members:
 
-
 ====================
  Indices and tables
 ====================
