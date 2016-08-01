@@ -1,3 +1,6 @@
+from __future__ import division
+from time import time
+
 import numpy as np
 import matplotlib.pyplot as pl
 
@@ -11,7 +14,8 @@ class Model(object):
         return a*np.sin(p0+2*np.pi*self.x*f)
 
 if __name__ == '__main__':
-
+    niter = 250
+    
     x = np.linspace(0,10,100)
     m = Model(x)
     y = m(2,1,0.25) + np.random.normal(0,0.5,size=x.size)
@@ -19,8 +23,10 @@ if __name__ == '__main__':
     de = DiffEvol(lambda pv: ((y-m(*pv))**2).sum(), [[1,3],[0,2],[0,4]], 50)
 
     ## Run n number of generations
-    res = de.optimize(250)
-
+    tstart = time()
+    res = de.optimize(niter)
+    print((time()-tstart) / niter)
+    
     ## Or use as an iterator
     for res in de(2):
         print res

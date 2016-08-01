@@ -37,8 +37,8 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, F=0.5, C=0.5, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1]):
-        if seed:
+    def __init__(self, fun, bounds, npop, F=0.5, C=0.5, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], pool=None):
+        if seed is not None:
             np.random.seed(seed)
 
         self.minfun = fun
@@ -48,7 +48,8 @@ class DiffEvol(object):
         self.bl = np.tile(self.bounds[:,0],[npop,1])
         self.bw = np.tile(self.bounds[:,1]-self.bounds[:,0],[npop,1])
         self.m  = -1 if maximize else 1
-
+        self.pool = pool
+        
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
 
@@ -108,9 +109,13 @@ class DiffEvol(object):
         for igen in range(ngen):
             popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
 
-            for ipop in range(self.n_pop):
-                fitt[ipop] = self.m * self.minfun(popt[ipop,:])
-    
+            if self.pool is not None:
+                M = self.pool.map
+            else:
+                M = map
+
+            fitt[:] = self.m * np.array(M(self.minfun, popt))
+                
             msk = fitt < fitc
             popc[msk,:] = popt[msk,:]
             fitc[msk]   = fitt[msk]
