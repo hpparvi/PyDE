@@ -42,7 +42,7 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None):
+    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None, min_ptp=1e-2):
         if seed is not None:
             np.random.seed(seed)
             
@@ -61,7 +61,8 @@ class DiffEvol(object):
             self.map = map
 
         self.periodic = []
-            
+        self.min_ptp = min_ptp
+        
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
         self.cbounds = cbounds
@@ -136,6 +137,10 @@ class DiffEvol(object):
             fitc[msk]   = fitt[msk]
 
             self._minidx = np.argmin(fitc)
+
+            if fitc.ptp() < self.min_ptp:
+                break
+            
             yield popc[self._minidx,:], fitc[self._minidx]
 
 
