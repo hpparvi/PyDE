@@ -37,7 +37,7 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, F=0.5, C=0.5, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], pool=None):
+    def __init__(self, fun, bounds, npop, F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None):
         if seed is not None:
             np.random.seed(seed)
 
@@ -57,7 +57,9 @@ class DiffEvol(object):
 
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
-
+        self.cbounds = cbounds
+        self.fbounds = fbounds
+        
         self.seed = seed
         self.F = F
         self.C = C
@@ -112,7 +114,10 @@ class DiffEvol(object):
             fitc[ipop] = self.m * self.minfun(popc[ipop,:])
 
         for igen in range(ngen):
-            popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
+            F = self.F or np.random.uniform(*self.fbounds)
+            C = self.C or np.random.uniform(*self.cbounds)
+
+            popt[:,:] = de_f.evolve_population(popc, F, C)
             fitt[:] = self.m * np.array(self.map(self.minfun, popt))
             
             msk = fitt < fitc
@@ -131,10 +136,11 @@ class DiffEvol(object):
         fitc[:] = self.m * self.minfun(self._population)
 
         for igen in range(ngen):
-            x = float(ngen-igen)/float(ngen)
+            #x = float(ngen-igen)/float(ngen)
 
-            self.F = np.random.uniform(0.25,0.75)
-            self.C = x*self.cmax + (1-x)*self.cmin
+            self.F = np.random.uniform(*self.fbounds)
+            self.C = np.random.uniform(*self.cbounds)
+            #self.C = x*self.cmax + (1-x)*self.cmin
 
             popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
             fitt[:] = self.m * self.minfun(popt)
