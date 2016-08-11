@@ -42,11 +42,11 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None, min_ptp=1e-2):
+    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None, min_ptp=1e-2, args=[], kwargs={}):
         if seed is not None:
             np.random.seed(seed)
             
-        self.minfun = fun
+        self.minfun = _function_wrapper(fun, args, kwargs)
         self.bounds = np.asarray(bounds)
         self.n_pop  = npop
         self.n_par  = (self.bounds).shape[0]
@@ -54,6 +54,7 @@ class DiffEvol(object):
         self.bw = np.tile(self.bounds[:,1]-self.bounds[:,0],[npop,1])
         self.m  = -1 if maximize else 1
         self.pool = pool
+        self.args = args
 
         if self.pool is not None:
             self.map = self.pool.map
@@ -167,3 +168,12 @@ class DiffEvol(object):
             self._minidx = np.argmin(fitc)
             yield popc[self._minidx,:], fitc[self._minidx]
 
+
+class _function_wrapper(object):
+    def __init__(self, f, args=[], kwargs={}):
+        self.f = f
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, x):
+        return self.f(x, *self.args, **self.kwargs)
