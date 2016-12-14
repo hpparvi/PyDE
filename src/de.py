@@ -131,7 +131,7 @@ class DiffEvol(object):
             for pid in self.periodic:
                 popt[:,pid] = wrap(popt[:,pid], self.bounds[pid,0], self.bounds[pid,1])
             
-            fitt[:] = self.m * np.array(self.map(self.minfun, popt))
+            fitt[:] = self.m * np.array(list(self.map(self.minfun, popt)))
             
             msk = fitt < fitc
             popc[msk,:] = popt[msk,:]
