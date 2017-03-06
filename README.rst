@@ -1,6 +1,9 @@
 PyDE
 ====
 
+.. image:: https://zenodo.org/badge/5871/hpparvi/PyDE.svg
+   :target: https://zenodo.org/badge/latestdoi/5871/hpparvi/PyDE
+
 Global optimization using differential evolution in Python [Storn97]_.
 
 
