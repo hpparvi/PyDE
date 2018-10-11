@@ -6,9 +6,14 @@ Implements the differential evolution optimization method by Storn & Price
 """
 from __future__ import division 
 
+import math as mt
 import numpy as np
 from numpy.random import random, randint
 from .de_f import de_f
+
+def wrap(v, vmin, vmax):
+    w = vmax-vmin
+    return vmin+np.mod(np.asarray(v)-vmin, w)
 
 class DiffEvol(object):
     """
@@ -37,21 +42,33 @@ class DiffEvol(object):
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
     """ 
-    def __init__(self, fun, bounds, npop, F=0.5, C=0.5, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1]):
-        if seed:
+    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None, min_ptp=1e-2, args=[], kwargs={}):
+        if seed is not None:
             np.random.seed(seed)
-
-        self.minfun = fun
+            
+        self.minfun = _function_wrapper(fun, args, kwargs)
         self.bounds = np.asarray(bounds)
         self.n_pop  = npop
         self.n_par  = (self.bounds).shape[0]
         self.bl = np.tile(self.bounds[:,0],[npop,1])
         self.bw = np.tile(self.bounds[:,1]-self.bounds[:,0],[npop,1])
         self.m  = -1 if maximize else 1
+        self.pool = pool
+        self.args = args
 
+        if self.pool is not None:
+            self.map = self.pool.map
+        else:
+            self.map = map
+
+        self.periodic = []
+        self.min_ptp = min_ptp
+        
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
-
+        self.cbounds = cbounds
+        self.fbounds = fbounds
+        
         self.seed = seed
         self.F = F
         self.C = C
@@ -87,7 +104,7 @@ class DiffEvol(object):
     def minimum_index(self):
         """Index of the best-fit solution"""
         return self._minidx
-
+    
     def optimize(self, ngen):
         """Run the optimizer for ``ngen`` generations"""
         for res in self(ngen):
@@ -106,16 +123,25 @@ class DiffEvol(object):
             fitc[ipop] = self.m * self.minfun(popc[ipop,:])
 
         for igen in range(ngen):
-            popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
+            F = self.F or np.random.uniform(*self.fbounds)
+            C = self.C or np.random.uniform(*self.cbounds)
 
-            for ipop in range(self.n_pop):
-                fitt[ipop] = self.m * self.minfun(popt[ipop,:])
-    
+            popt[:,:] = de_f.evolve_population(popc, F, C)
+
+            for pid in self.periodic:
+                popt[:,pid] = wrap(popt[:,pid], self.bounds[pid,0], self.bounds[pid,1])
+            
+            fitt[:] = self.m * np.array(list(self.map(self.minfun, popt)))
+            
             msk = fitt < fitc
             popc[msk,:] = popt[msk,:]
             fitc[msk]   = fitt[msk]
 
             self._minidx = np.argmin(fitc)
+
+            if fitc.ptp() < self.min_ptp:
+                break
+            
             yield popc[self._minidx,:], fitc[self._minidx]
 
 
@@ -127,10 +153,11 @@ class DiffEvol(object):
         fitc[:] = self.m * self.minfun(self._population)
 
         for igen in range(ngen):
-            x = float(ngen-igen)/float(ngen)
+            #x = float(ngen-igen)/float(ngen)
 
-            self.F = np.random.uniform(0.25,0.75)
-            self.C = x*self.cmax + (1-x)*self.cmin
+            self.F = np.random.uniform(*self.fbounds)
+            self.C = np.random.uniform(*self.cbounds)
+            #self.C = x*self.cmax + (1-x)*self.cmin
 
             popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
             fitt[:] = self.m * self.minfun(popt)
@@ -141,3 +168,12 @@ class DiffEvol(object):
             self._minidx = np.argmin(fitc)
             yield popc[self._minidx,:], fitc[self._minidx]
 
+
+class _function_wrapper(object):
+    def __init__(self, f, args=[], kwargs={}):
+        self.f = f
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, x):
+        return self.f(x, *self.args, **self.kwargs)
