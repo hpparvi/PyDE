@@ -4,22 +4,80 @@ Implements the differential evolution optimization method by Storn & Price
 
 .. moduleauthor:: Hannu Parviainen <hpparvi@gmail.com>
 """
-from __future__ import division 
 
-import math as mt
-import numpy as np
-from numpy.random import random, randint
-from .de_f import de_f
+from numba import njit
+from numpy import asarray, zeros, zeros_like, tile, array, argmin, mod
+from numpy.random import random, randint, rand, seed as rseed, uniform
+
 
 def wrap(v, vmin, vmax):
-    w = vmax-vmin
-    return vmin+np.mod(np.asarray(v)-vmin, w)
+    w = vmax - vmin
+    return vmin + mod(asarray(v) - vmin, w)
+
+
+@njit
+def evolve_vector(i, pop, f, c):
+    npop, ndim = pop.shape
+
+    # --- Vector selection ---
+    v1, v2, v3 = i, i, i
+    while v1 == i:
+        v1 = randint(npop)
+    while (v2 == i) or (v2 == v1):
+        v2 = randint(npop)
+    while (v3 == i) or (v3 == v2) or (v3 == v1):
+        v3 = randint(npop)
+
+    # --- Mutation ---
+    v = pop[v1] + f * (pop[v2] - pop[v3])
+
+    # --- Cross over ---
+    jf = randint(ndim)
+    co = rand(ndim)
+    for j in range(ndim):
+        if co[j] > c and j != jf:
+            v[j] = pop[i, j]
+    return v
+
+
+@njit("float64[:,:](float64[:,:], float64[:,:], float64, float64)")
+def evolve_population(pop, pop2, f, c):
+    npop, ndim = pop.shape
+
+    for i in range(npop):
+
+        # --- Vector selection ---
+        v1, v2, v3 = i, i, i
+        while v1 == i:
+            v1 = randint(npop)
+        while (v2 == i) or (v2 == v1):
+            v2 = randint(npop)
+        while (v3 == i) or (v3 == v2) or (v3 == v1):
+            v3 = randint(npop)
+
+        # --- Mutation ---
+        v = pop[v1] + f * (pop[v2] - pop[v3])
+
+        # --- Cross over ---
+        co = rand(ndim)
+        for j in range(ndim):
+            if co[j] <= c:
+                pop2[i, j] = v[j]
+            else:
+                pop2[i, j] = pop[i, j]
+
+        # --- Forced crossing ---
+        j = randint(ndim)
+        pop2[i, j] = v[j]
+
+    return pop2
+
 
 class DiffEvol(object):
     """
     Implements the differential evolution optimization method by Storn & Price
     (Storn, R., Price, K., Journal of Global Optimization 11: 341--359, 1997)
-    
+
     :param fun:
        the function to be minimized
 
@@ -29,10 +87,10 @@ class DiffEvol(object):
     :param npop:
         the size of the population (5*D - 10*D)
 
-    :param  F: (optional)
+    :param  f: (optional)
         the difference amplification factor. Values of 0.5-0.8 are good in most cases.
 
-    :param C: (optional)
+    :param c: (optional)
         The cross-over probability. Use 0.9 to test for fast convergence, and smaller
         values (~0.1) for a more elaborate search.
 
@@ -41,18 +99,20 @@ class DiffEvol(object):
 
     :param maximize: (optional)
         Switch setting whether to maximize or minimize the function. Defaults to minimization.
-    """ 
-    def __init__(self, fun, bounds, npop, periodic=[], F=None, C=None, seed=None, maximize=False, vfun=False, cbounds=[0.25, 1], fbounds=[0.25, 0.75], pool=None, min_ptp=1e-2, args=[], kwargs={}):
+    """
+
+    def __init__(self, fun, bounds, npop, f=None, c=None, seed=None, maximize=False, vectorize=False, cbounds=(0.25, 1),
+                 fbounds=(0.25, 0.75), pool=None, min_ptp=1e-2, args=[], kwargs={}):
         if seed is not None:
-            np.random.seed(seed)
-            
+            rseed(seed)
+
         self.minfun = _function_wrapper(fun, args, kwargs)
-        self.bounds = np.asarray(bounds)
-        self.n_pop  = npop
-        self.n_par  = (self.bounds).shape[0]
-        self.bl = np.tile(self.bounds[:,0],[npop,1])
-        self.bw = np.tile(self.bounds[:,1]-self.bounds[:,0],[npop,1])
-        self.m  = -1 if maximize else 1
+        self.bounds = asarray(bounds)
+        self.n_pop = npop
+        self.n_par = self.bounds.shape[0]
+        self.bl = tile(self.bounds[:, 0], [npop, 1])
+        self.bw = tile(self.bounds[:, 1] - self.bounds[:, 0], [npop, 1])
+        self.m = -1 if maximize else 1
         self.pool = pool
         self.args = args
 
@@ -63,30 +123,30 @@ class DiffEvol(object):
 
         self.periodic = []
         self.min_ptp = min_ptp
-        
+
         self.cmin = cbounds[0]
         self.cmax = cbounds[1]
         self.cbounds = cbounds
         self.fbounds = fbounds
-        
+
         self.seed = seed
-        self.F = F
-        self.C = C
+        self.f = f
+        self.c = c
 
-        self._population = np.asarray(self.bl + random([self.n_pop, self.n_par]) * self.bw)
-        self._fitness    = np.zeros(npop)
-        self._minidx     = None
+        self._population = asarray(self.bl + random([self.n_pop, self.n_par]) * self.bw)
+        self._fitness = zeros(npop)
+        self._minidx = None
 
-        self._trial_pop  = np.zeros_like(self._population)
-        self._trial_fit  = np.zeros_like(self._fitness)
+        self._trial_pop = zeros_like(self._population)
+        self._trial_fit = zeros_like(self._fitness)
 
-        if vfun:
+        if vectorize:
             self._eval = self._eval_vfun
         else:
             self._eval = self._eval_sfun
 
     @property
-    def population(self): 
+    def population(self):
         """The parameter vector population"""
         return self._population
 
@@ -98,13 +158,13 @@ class DiffEvol(object):
     @property
     def minimum_location(self):
         """The best-fit solution"""
-        return self._population[self._minidx,:]
+        return self._population[self._minidx, :]
 
     @property
     def minimum_index(self):
         """Index of the best-fit solution"""
         return self._minidx
-    
+
     def optimize(self, ngen):
         """Run the optimizer for ``ngen`` generations"""
         for res in self(ngen):
@@ -118,32 +178,26 @@ class DiffEvol(object):
         """Run DE for a function that takes a single pv as an input and retuns a single value."""
         popc, fitc = self._population, self._fitness
         popt, fitt = self._trial_pop, self._trial_fit
-        
+
         for ipop in range(self.n_pop):
-            fitc[ipop] = self.m * self.minfun(popc[ipop,:])
+            fitc[ipop] = self.m * self.minfun(popc[ipop, :])
 
         for igen in range(ngen):
-            F = self.F or np.random.uniform(*self.fbounds)
-            C = self.C or np.random.uniform(*self.cbounds)
+            f = self.f or uniform(*self.fbounds)
+            c = self.c or uniform(*self.cbounds)
 
-            popt[:,:] = de_f.evolve_population(popc, F, C)
+            popt = evolve_population(popc, popt, f, c)
+            fitt[:] = self.m * array(list(self.map(self.minfun, popt)))
 
-            for pid in self.periodic:
-                popt[:,pid] = wrap(popt[:,pid], self.bounds[pid,0], self.bounds[pid,1])
-            
-            fitt[:] = self.m * np.array(list(self.map(self.minfun, popt)))
-            
             msk = fitt < fitc
-            popc[msk,:] = popt[msk,:]
-            fitc[msk]   = fitt[msk]
+            popc[msk, :] = popt[msk, :]
+            fitc[msk] = fitt[msk]
 
-            self._minidx = np.argmin(fitc)
-
+            self._minidx = argmin(fitc)
             if fitc.ptp() < self.min_ptp:
                 break
-            
-            yield popc[self._minidx,:], fitc[self._minidx]
 
+            yield popc[self._minidx, :], fitc[self._minidx]
 
     def _eval_vfun(self, ngen=1):
         """Run DE for a function that takes the whole population as an input and retuns a value for each pv."""
@@ -153,20 +207,21 @@ class DiffEvol(object):
         fitc[:] = self.m * self.minfun(self._population)
 
         for igen in range(ngen):
-            #x = float(ngen-igen)/float(ngen)
+            f = self.f or uniform(*self.fbounds)
+            c = self.c or uniform(*self.cbounds)
 
-            self.F = np.random.uniform(*self.fbounds)
-            self.C = np.random.uniform(*self.cbounds)
-            #self.C = x*self.cmax + (1-x)*self.cmin
-
-            popt[:,:] = de_f.evolve_population(popc, self.F, self.C)
+            popt = evolve_population(popc, popt, f, c)
             fitt[:] = self.m * self.minfun(popt)
-            msk = fitt < fitc
-            popc[msk,:] = popt[msk,:]
-            fitc[msk]   = fitt[msk]
 
-            self._minidx = np.argmin(fitc)
-            yield popc[self._minidx,:], fitc[self._minidx]
+            msk = fitt < fitc
+            popc[msk, :] = popt[msk, :]
+            fitc[msk] = fitt[msk]
+
+            self._minidx = argmin(fitc)
+            if fitc.ptp() < self.min_ptp:
+                break
+
+            yield popc[self._minidx, :], fitc[self._minidx]
 
 
 class _function_wrapper(object):

@@ -6,7 +6,7 @@ with open('README.rst') as file:
     long_description = file.read()
 
 setup(name='PyDE',
-      version='1.5',
+      version='2.0',
       description='Differential Evolution in Python',
       long_description=long_description,
       author='Hannu Parviainen',
@@ -14,8 +14,7 @@ setup(name='PyDE',
       url='https://github.com/hpparvi/PyDE',
       package_dir={'pyde':'src'},
       packages=['pyde'],
-      ext_modules=[Extension('pyde.de_f', ['src/de.f90'], libraries=['gomp','m'])],
-      install_requires=["numpy"],
+      install_requires=["numpy", "numba"],
       license='GPLv2',
       classifiers=[
           "Topic :: Scientific/Engineering",
